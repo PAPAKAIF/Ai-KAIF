@@ -7,11 +7,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
 
     if (!apiKey) {
       return res.status(500).json({
-        error: "AI configuration missing"
+        error: "Gemini API key is missing."
       });
     }
 
@@ -27,46 +27,53 @@ export default async function handler(req, res) {
       });
     }
 
-    const response = await fetch(
-      "https://api.openai.com/v1/responses",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
+    const url =
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey
+      },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{
+            text: "You are KAIF AI, a helpful, friendly and intelligent AI assistant. Answer accurately. Support Bengali and English."
+          }]
         },
-        body: JSON.stringify({
-          model: "gpt-5.5",
-          instructions:
-            "You are KAIF AI, a helpful, intelligent and friendly AI assistant. Answer clearly and accurately. Support Bengali and English. Be respectful and helpful.",
-          input: message.trim(),
-          max_output_tokens: 700
-        })
-      }
-    );
+        contents: [{
+          role: "user",
+          parts: [{ text: message.trim() }]
+        }]
+      })
+    });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("OpenAI API error:", data);
+      console.error("Gemini API status:", response.status);
+      console.error("Gemini API error:", data.error?.message);
+
       return res.status(502).json({
-        error: "AI service is temporarily unavailable."
+        error: "Gemini API error: " +
+          (data.error?.message || "Please try again.")
       });
     }
 
-    const answer = (data.output || [])
-      .filter(item => item.type === "message")
-      .flatMap(item => item.content || [])
-      .filter(item => item.type === "output_text")
-      .map(item => item.text)
+    const answer = data.candidates?.[0]?.content?.parts
+      ?.map(part => part.text || "")
       .join("\n");
 
     return res.status(200).json({
-      reply: answer || "Sorry, I could not generate a response."
+      reply: answer || "No answer received."
     });
 
   } catch (error) {
-    console.error("KAIF AI error:", error);
+    console.error("KAIF AI error:", error.message);
 
     return res.status(500).json({
-      error: "Something went wrong. Please try again."
+      error: "Server error. Please try again."
+    });
+  }
+}
