@@ -4,55 +4,46 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KAIF AI</title>
+<title>KAIF AI - Your AI Assistant</title>
 <style>
 *{box-sizing:border-box}
 body{
- margin:0;
- background:#090d18;
- color:white;
- font-family:Arial,sans-serif;
- min-height:100vh;
- display:flex;
- flex-direction:column;
+ margin:0;background:#090d18;color:white;
+ font-family:Arial,sans-serif;min-height:100vh;
+ display:flex;flex-direction:column;
 }
 header{
- padding:20px;
- border-bottom:1px solid #252c40;
- display:flex;
- align-items:center;
- gap:12px;
+ padding:18px 20px;border-bottom:1px solid #252c40;
+ display:flex;align-items:center;gap:12px;
 }
 .logo{
  width:42px;height:42px;border-radius:14px;
  background:linear-gradient(135deg,#3b82f6,#a855f7);
- display:grid;place-items:center;
- font-size:22px;font-weight:bold;
+ display:grid;place-items:center;font-size:22px;font-weight:bold;
 }
 main{
- width:100%;max-width:750px;
- margin:auto;padding:30px 20px;
- flex:1;display:flex;flex-direction:column;
+ width:100%;max-width:800px;margin:auto;
+ padding:30px 20px;flex:1;display:flex;flex-direction:column;
 }
-h1{font-size:36px;margin-bottom:8px}
+h1{font-size:clamp(27px,6vw,40px);margin-bottom:8px}
 .gradient{
  background:linear-gradient(90deg,#60a5fa,#c084fc);
  -webkit-background-clip:text;color:transparent;
 }
 .sub{color:#9ca3af;line-height:1.6}
-.chat{
- margin-top:30px;flex:1;
+#chat{
+ margin-top:25px;flex:1;min-height:250px;
  display:flex;flex-direction:column;gap:14px;
 }
 .message{
- padding:15px;border-radius:16px;
+ padding:14px 16px;border-radius:16px;
  background:#151d30;line-height:1.6;
- white-space:pre-wrap;
+ white-space:pre-wrap;overflow-wrap:anywhere;
+ max-width:90%;
 }
 .user{background:#25365b;align-self:flex-end}
-.input-area{
- display:flex;gap:10px;margin-top:20px;
-}
+.bot{align-self:flex-start}
+.input-area{display:flex;gap:10px;margin-top:20px}
 input{
  min-width:0;flex:1;padding:16px;
  border-radius:14px;border:1px solid #374151;
@@ -63,42 +54,89 @@ button{
  background:#6366f1;color:white;
  font-size:16px;font-weight:bold;
 }
+button:disabled{opacity:.5}
 footer{text-align:center;color:#64748b;padding:18px;font-size:12px}
 </style>
 </head>
 <body>
 <header>
-<div class="logo">K</div>
-<div>
-<strong>KAIF AI</strong><br>
-<small style="color:#9ca3af">Your AI Assistant</small>
-</div>
+ <div class="logo">K</div>
+ <div>
+  <strong>KAIF AI</strong><br>
+  <small style="color:#9ca3af">Your AI Assistant</small>
+ </div>
 </header>
+
 <main>
-<h1>Hello, I'm <span class="gradient">KAIF AI</span></h1>
-<p class="sub">Your personal AI assistant. A new world of intelligence starts here.</p>
-<div class="chat" id="chat">
-<div class="message">👋 Welcome to KAIF AI! How can I help you today?</div>
-</div>
-<div class="input-area">
-<input id="question" placeholder="Message KAIF AI..." />
-<button onclick="sendMessage()">Send</button>
-</div>
+ <h1>Hello, I'm <span class="gradient">KAIF AI</span></h1>
+ <p class="sub">Your personal AI assistant. Ask me anything.</p>
+
+ <div id="chat">
+  <div class="message bot">
+   👋 Welcome to KAIF AI! How can I help you today?
+  </div>
+ </div>
+
+ <div class="input-area">
+  <input id="question" placeholder="Message KAIF AI..." />
+  <button id="send" onclick="sendMessage()">Send</button>
+ </div>
 </main>
+
 <footer>© 2026 KAIF AI · Built with ambition</footer>
+
 <script>
-function sendMessage(){
- const input=document.getElementById('question');
- const chat=document.getElementById('chat');
- const value=input.value.trim();
- if(!value)return;
- const msg=document.createElement('div');
- msg.className='message user';
- msg.textContent=value;
- chat.appendChild(msg);
- input.value='';
- chat.scrollTop=chat.scrollHeight;
+const input = document.getElementById("question");
+const chat = document.getElementById("chat");
+const send = document.getElementById("send");
+
+function addMessage(text, type) {
+ const div = document.createElement("div");
+ div.className = "message " + type;
+ div.textContent = text;
+ chat.appendChild(div);
+ div.scrollIntoView({behavior:"smooth",block:"nearest"});
+ return div;
 }
+
+async function sendMessage() {
+ const message = input.value.trim();
+ if (!message || send.disabled) return;
+
+ addMessage(message,"user");
+ input.value = "";
+ send.disabled = true;
+ send.textContent = "...";
+
+ const loading = addMessage("KAIF AI is thinking...","bot");
+
+ try {
+  const response = await fetch("/api/chat", {
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({message})
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+   throw new Error(data.error || "AI request failed");
+  }
+
+  loading.textContent = data.reply || "No answer received.";
+
+ } catch(error) {
+  loading.textContent = "Sorry! " + error.message;
+ } finally {
+  send.disabled = false;
+  send.textContent = "Send";
+  input.focus();
+ }
+}
+
+input.addEventListener("keydown", function(event) {
+ if (event.key === "Enter") sendMessage();
+});
 </script>
 </body>
 </html>
