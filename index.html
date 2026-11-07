@@ -85,58 +85,126 @@ footer{text-align:center;color:#64748b;padding:18px;font-size:12px}
 
 <footer>© 2026 KAIF AI · Built with ambition</footer>
 
-<script>
+
 const input = document.getElementById("question");
 const chat = document.getElementById("chat");
 const send = document.getElementById("send");
 
-function addMessage(text, type) {
- const div = document.createElement("div");
- div.className = "message " + type;
- div.textContent = text;
- chat.appendChild(div);
- div.scrollIntoView({behavior:"smooth",block:"nearest"});
- return div;
+const HISTORY_KEY = "kaif_ai_chat_history";
+
+let history = [];
+
+function saveHistory() {
+  try {
+    localStorage.setItem(
+      HISTORY_KEY,
+      JSON.stringify(history)
+    );
+  } catch (error) {
+    console.error("History save failed:", error);
+  }
+}
+
+function addMessage(text, type, save = true) {
+  const div = document.createElement("div");
+  div.className = "message " + type;
+  div.textContent = text;
+
+  chat.appendChild(div);
+
+  if (save && (type === "user" || type === "bot")) {
+    history.push({ text, type });
+    saveHistory();
+  }
+
+  div.scrollIntoView({
+    behavior: "smooth",
+    block: "nearest"
+  });
+
+  return div;
+}
+
+// Load previous conversations
+try {
+  const saved = JSON.parse(
+    localStorage.getItem(HISTORY_KEY) || "[]"
+  );
+
+  if (Array.isArray(saved)) {
+    history = saved.filter(
+      item =>
+        item &&
+        typeof item.text === "string" &&
+        ["user", "bot"].includes(item.type)
+    );
+
+    if (history.length > 0) {
+      chat.innerHTML = "";
+
+      history.forEach(item => {
+        addMessage(item.text, item.type, false);
+      });
+    }
+  }
+} catch (error) {
+  history = [];
 }
 
 async function sendMessage() {
- const message = input.value.trim();
- if (!message || send.disabled) return;
+  const message = input.value.trim();
 
- addMessage(message,"user");
- input.value = "";
- send.disabled = true;
- send.textContent = "...";
+  if (!message || send.disabled) return;
 
- const loading = addMessage("KAIF AI is thinking...","bot");
+  addMessage(message, "user");
+  input.value = "";
 
- try {
-  const response = await fetch("/api/chat", {
-   method:"POST",
-   headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({message})
-  });
+  send.disabled = true;
+  send.textContent = "...";
 
-  const data = await response.json();
+  const loading = addMessage(
+    "KAIF AI is thinking...",
+    "bot",
+    false
+  );
 
-  if (!response.ok) {
-   throw new Error(data.error || "AI request failed");
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ message })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "AI request failed");
+    }
+
+    const reply = data.reply || "No answer received.";
+
+    loading.textContent = reply;
+
+    history.push({
+      text: reply,
+      type: "bot"
+    });
+
+    saveHistory();
+
+  } catch (error) {
+    loading.textContent = "Sorry! " + error.message;
+  } finally {
+    send.disabled = false;
+    send.textContent = "Send";
+    input.focus();
   }
-
-  loading.textContent = data.reply || "No answer received.";
-
- } catch(error) {
-  loading.textContent = "Sorry! " + error.message;
- } finally {
-  send.disabled = false;
-  send.textContent = "Send";
-  input.focus();
- }
 }
 
 input.addEventListener("keydown", function(event) {
- if (event.key === "Enter") sendMessage();
+  if (event.key === "Enter") {
+    sendMessage();
+  }
 });
-</script>
-</body>
-</html>
