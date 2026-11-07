@@ -174,8 +174,10 @@ async function sendMessage() {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ message })
-    });
+      body: JSON.stringify({
+  message,
+  history: history.slice(0, -1)
+})
 
     const data = await response.json();
 
