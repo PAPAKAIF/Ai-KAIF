@@ -1,5 +1,4 @@
 
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -35,10 +34,10 @@ export default async function handler(req, res) {
             typeof item.text === "string" &&
             ["user", "bot"].includes(item.type)
           )
-          .slice(-20)
+          .slice(-6)
           .map(item => ({
             role: item.type === "user" ? "user" : "model",
-            parts: [{ text: item.text.slice(0, 10000) }]
+            parts: [{ text: item.text.slice(0, 2000) }]
           }))
       : [];
 
@@ -62,10 +61,14 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         systemInstruction: {
           parts: [{
-            text: "You are KAIF AI, a helpful, friendly and intelligent AI assistant. Answer accurately. Support Bengali and English. Use previous conversation context when relevant."
+            text: "You are KAIF AI, a fast, friendly and intelligent AI assistant. Answer clearly and accurately. Support Bengali and English."
           }]
         },
-        contents
+        contents,
+        generationConfig: {
+          maxOutputTokens: 512,
+          temperature: 0.7
+        }
       })
     });
 
