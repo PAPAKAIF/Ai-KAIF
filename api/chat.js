@@ -1,4 +1,5 @@
 
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const { message } = req.body || {};
+    const { message, history = [] } = req.body || {};
 
     if (
       typeof message !== "string" ||
@@ -27,8 +28,31 @@ export default async function handler(req, res) {
       });
     }
 
+    const previousMessages = Array.isArray(history)
+      ? history
+          .filter(item =>
+            item &&
+            typeof item.text === "string" &&
+            ["user", "bot"].includes(item.type)
+          )
+          .slice(-20)
+          .map(item => ({
+            role: item.type === "user" ? "user" : "model",
+            parts: [{ text: item.text.slice(0, 10000) }]
+          }))
+      : [];
+
+    const contents = [
+      ...previousMessages,
+      {
+        role: "user",
+        parts: [{ text: message.trim() }]
+      }
+    ];
+
     const url =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent";
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent";
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -38,25 +62,20 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         systemInstruction: {
           parts: [{
-            text: "You are KAIF AI, a helpful, friendly and intelligent AI assistant. Answer accurately. Support Bengali and English."
+            text: "You are KAIF AI, a helpful, friendly and intelligent AI assistant. Answer accurately. Support Bengali and English. Use previous conversation context when relevant."
           }]
         },
-        contents: [{
-          role: "user",
-          parts: [{ text: message.trim() }]
-        }]
+        contents
       })
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("Gemini API status:", response.status);
       console.error("Gemini API error:", data.error?.message);
 
       return res.status(502).json({
-        error: "Gemini API error: " +
-          (data.error?.message || "Please try again.")
+        error: data.error?.message || "Gemini API error."
       });
     }
 
